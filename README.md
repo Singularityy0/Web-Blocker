@@ -52,21 +52,16 @@ A Rust-based application with a user interface for Windows that allows users to 
 - The application requires administrator privileges to modify the hosts file
 - A backup of the hosts file is created before any modifications
 - Blocked websites are saved to a JSON file for persistence across app restarts
+- it is advised to first select disble blocking then removing the sites.
+- hence user is advised to resart the app once for unblocking to take affect 
 
+## Installing Rust
 
-## License
+To install Rust, follow these steps:
 
-[Include your chosen license here]
+### 1. Install Rust using `rustup`
+Rust uses `rustup` for installation and version management. Run the following command in your terminal:
 
-## Contributing
-
-[Include guidelines for contributing to the project]
-
-<div style="text-align: center">⁂</div>
-
-[^1]: https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/51247489/b016605b-684c-4397-ab14-0c99b1ba71fc/Cargo.toml
-
-[^2]: https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/51247489/f00216f3-ce53-4bfd-9377-c70d0a09a5b7/main.rs
-
-[^3]: https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/51247489/97477de9-8c12-48db-ae4e-bfcb3ac01338/config.toml
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
