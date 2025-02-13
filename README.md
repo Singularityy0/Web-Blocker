@@ -46,6 +46,7 @@ A Rust-based application with a user interface for Windows that allows users to 
 2. Clone this repository
 3. Run `cargo build --release` in the project directory
 4. The executable will be available in `target/release/webblocker.exe`
+5. If you don't have Rust installed or prefer not to install it, a release build is included in the repository.
 
 ## Notes
 
