@@ -65,3 +65,38 @@ Rust uses `rustup` for installation and version management. Run the following co
 ```sh
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
+```
+
+## HOW TO USE
+
+- run the .exe file as adminsitrator
+- it should look something like this.
+
+![image](https://github.com/user-attachments/assets/ba9ab2e3-8f73-4c27-bff3-d30e4c68373e)
+
+- follow the steps in order <span style="color:red">RED</span> <span style="color:yellow">YELLOW</span> <span style="color:green">GREEN</span>
+
+
+
+  ![Screenshot (4)](https://github.com/user-attachments/assets/6e44cd4a-8b16-47e7-918d-cf89136119da)
+
+- should look something like this
+  ![Screenshot (5)](https://github.com/user-attachments/assets/4006f749-da3f-44fa-9672-e8ac197612dd)
+
+- CHECK!! , if does not work , close and restart your browser and/or perform the following code on terminal (admin)
+      
+  ```sh
+  ipconfig /flushdns
+  ```
+- __TO DELETE__
+
+- follow the steps in order <span style="color:red">RED</span> <span style="color:yellow">YELLOW</span> <span style="color:green">GREEN</span>
+![image](https://github.com/user-attachments/assets/7bea229a-3bc4-4501-8a94-c8caec1199c2)
+
+- **IT IS ABSOLUTELY NECESSARY TO CLOSE AND RESTART THE SCRIPT IN ORDER FOR UNBLOCKING TO TAKE AFFECT !!!**
+- - CHECK!! , if does not work , close and restart your browser and/or perform the following code on terminal (admin)
+      
+  ```sh
+  ipconfig /flushdns
+  ```
+
