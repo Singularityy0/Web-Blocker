@@ -1,103 +1,111 @@
-# Website Blocker
+﻿# Website Blocker
+
+A Rust-based Windows desktop application that blocks websites by redirecting
+their domains to `127.0.0.1` in the system hosts file.
 
 ---
 
-A Rust-based application with a user interface for Windows that allows users to block specific websites.
-
 ## Features
 
-- Add websites to a block list
-- Remove websites from the block list
-- Toggle blocking on and off
-- Set timed blocks for websites
-- Persistent storage of blocked sites
-- Automatic blocking of common domain variants (www, m, app)
-- Hosts file backup before modifications
+- Block websites permanently or for a timed duration (e.g. `30m`, `2h`, `1d`)
+- Remove sites from the block list at any time
+- Toggle all blocking on / off with a single button
+- Automatically blocks common domain variants (`www.`, `m.`, `app.`)
+- Persists the block list across restarts (`blocked_sites.json`)
+- Creates a `hosts.bak` backup before every modification
+- Exclusive file-locking on every write — safe against concurrent access
+- Precise hostname matching — blocking `app.com` never touches `my-app.com`
 
+---
 
 ## Technical Details
 
-- **Language:** Rust
-- **UI Library:** Iced
-- **Blocking Mechanism:** Modifies the Windows hosts file
-- **File Path:** `C:\Windows\System32\drivers\etc\hosts`
+| Item | Detail |
+|---|---|
+| Language | Rust 2021 |
+| UI | [iced](https://github.com/iced-rs/iced) 0.10 |
+| Blocking mechanism | Modifies `C:\Windows\System32\drivers\etc\hosts` |
+| Persistence | `blocked_sites.json` (next to the executable) |
+| File locking | `fs2` exclusive lock on every write |
 
+---
+
+## Module Structure
+
+```
+src/
+  main.rs       
+  app.rs         
+  blocker.rs     
+  hosts.rs      
+  duration.rs   
+  permissions.rs 
+```
+
+---
 
 ## Dependencies
 
-- iced = "0.10"
-- serde = { version = "1.0", features = ["derive"] }
-- serde_json = "1.0"
-- url = "2.4"
-- chrono = "0.4.39"
+```toml
+iced       = "0.10"     
+serde      = "1.0"        
+serde_json = "1.0"        
+url        = "2.4"       
+fs2        = "0.4"        
+```
 
+> `chrono` has been removed , it was listed as a dependency but was never used.
+
+---
 
 ## Usage
 
-1. Run the application with administrator privileges
-2. Enter a website URL in the input field
-3. Optionally, specify a block duration (e.g., 1s, 1m, 1h, 1d)
-4. Click "Add Website" to block the site
-5. Use the "Enable Blocking" / "Disable Blocking" button to toggle the blocker
+1. Run `webblocker.exe` **as Administrator** (right-click -> Run as administrator).
+2. Type a website URL in the left input field (e.g. `youtube.com` or `https://www.reddit.com`).
+3. Optionally type a duration in the right field:
+   - `30s` — 30 seconds
+   - `5m`  — 5 minutes
+   - `2h`  — 2 hours
+   - `1d`  — 1 day
+   - Leave blank for a **permanent** block.
+4. Click **Add Website**.
+5. Click **Enable Blocking** to activate. The hosts file is updated immediately.
+6. Click **Disable Blocking** to stop all blocker entries are removed from the hosts file at once.
 
-## Installation
+> **Tip:** If a site is still reachable after blocking, restart your browser and/or run
+> `ipconfig /flushdns` in an Administrator terminal.
 
-1. Ensure you have Rust installed on your system
-2. Clone this repository
-3. Run `cargo build --release` in the project directory
-4. The executable will be available in `target/release/webblocker.exe`
-5. If you don't have Rust installed or prefer not to install it, a release build is included in the repository.
+---
+
+## Removing a site
+
+1. Make sure **blocking is disabled** first (click "Disable Blocking").
+2. Click the **Remove** button next to the site in the list.
+3. Re-enable blocking if desired.
+
+> The app must be **restarted once** after removal for the unblock to fully take effect.
+
+---
+
+## Installation (from source)
+
+```sh
+# requires Rust — https://rustup.rs
+cargo build --release
+# binary is at target/release/webblocker.exe
+```
+
+The binary statically links the MSVC C runtime (configured in `.cargo/config.toml`)
+so it runs on any Windows machine without extra redistributables.
+
+---
 
 ## Notes
 
-- The application requires administrator privileges to modify the hosts file
-- A backup of the hosts file is created before any modifications
-- Blocked websites are saved to a JSON file for persistence across app restarts
-- it is advised to first select disble blocking then removing the sites.
-- hence user is advised to resart the app once for unblocking to take affect 
-
-## Installing Rust
-
-To install Rust, follow these steps:
-
-### 1. Install Rust using `rustup`
-Rust uses `rustup` for installation and version management. Run the following command in your terminal:
-
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-```
-
-## HOW TO USE
-
-- run the .exe file as adminsitrator
-- it should look something like this.
-
-![image](https://github.com/user-attachments/assets/ba9ab2e3-8f73-4c27-bff3-d30e4c68373e)
-
-- follow the steps in order <span style="color:red">RED</span> <span style="color:yellow">YELLOW</span> <span style="color:green">GREEN</span>
-
-
-
-  ![Screenshot (4)](https://github.com/user-attachments/assets/6e44cd4a-8b16-47e7-918d-cf89136119da)
-
-- should look something like this
-  ![Screenshot (5)](https://github.com/user-attachments/assets/4006f749-da3f-44fa-9672-e8ac197612dd)
-
-- CHECK!! , if does not work , close and restart your browser and/or perform the following code on terminal (admin)
-      
-  ```sh
-  ipconfig /flushdns
-  ```
-- __TO DELETE__
-
-- follow the steps in order <span style="color:red">RED</span> <span style="color:yellow">YELLOW</span> <span style="color:green">GREEN</span>
-![image](https://github.com/user-attachments/assets/7bea229a-3bc4-4501-8a94-c8caec1199c2)
-
-- **IT IS ABSOLUTELY NECESSARY TO CLOSE AND RESTART THE SCRIPT IN ORDER FOR UNBLOCKING TO TAKE AFFECT !!!**
-- - CHECK!! , if does not work , close and restart your browser and/or perform the following code on terminal (admin)
-      
-  ```sh
-  ipconfig /flushdns
-  ```
-
+- Administrator privileges are required to write to the hosts file.  The app
+  detects this by probing write access directly — no fragile `whoami /priv` parsing.
+- A backup of the hosts file (`hosts.bak`) is created before every modification.
+- Blocking `example.com` automatically also blocks `www.example.com`,
+  `m.example.com`, and `app.example.com`.
+- Timed blocks are cleaned up automatically on the next app launch (expired entries
+  are not written back to the hosts file).
