@@ -8,12 +8,12 @@ their domains to `127.0.0.1` in the system hosts file.
 ## Features
 
 - Block websites permanently or for a timed duration (e.g. `30m`, `2h`, `1d`)
-- Remove sites from the block list at any time
+- Remove sites from the block list at any time — hosts file cleaned immediately
 - Toggle all blocking on / off with a single button
 - Automatically blocks common domain variants (`www.`, `m.`, `app.`)
 - Persists the block list across restarts (`blocked_sites.json`)
 - Creates a `hosts.bak` backup before every modification
-- Exclusive file-locking on every write — safe against concurrent access
+- Safe concurrent writes via `CreateFileW` with shared file access
 - Precise hostname matching — blocking `app.com` never touches `my-app.com`
 
 ---
@@ -26,7 +26,7 @@ their domains to `127.0.0.1` in the system hosts file.
 | UI | [iced](https://github.com/iced-rs/iced) 0.10 |
 | Blocking mechanism | Modifies `C:\Windows\System32\drivers\etc\hosts` |
 | Persistence | `blocked_sites.json` (next to the executable) |
-| File locking | `fs2` exclusive lock on every write |
+| Write strategy | `CreateFileW` with `FILE_SHARE_READ \| FILE_SHARE_WRITE` |
 
 ---
 
@@ -34,12 +34,12 @@ their domains to `127.0.0.1` in the system hosts file.
 
 ```
 src/
-  main.rs       
-  app.rs         
-  blocker.rs     
-  hosts.rs      
-  duration.rs   
-  permissions.rs 
+  main.rs        — entry point: startup sanitisation, launches the GUI
+  app.rs         — Iced Sandbox: Message enum, view() layout, update() handler
+  blocker.rs     — BlockedSites model + all business logic (add/remove/toggle/expire)
+  hosts.rs       — all raw hosts file I/O (backup, clean, append, sanitise, write)
+  duration.rs    — parse_duration(): human-readable suffix parsing with clear errors
+  permissions.rs — check_permissions(): probes write access instead of parsing whoami
 ```
 
 ---
@@ -47,14 +47,12 @@ src/
 ## Dependencies
 
 ```toml
-iced       = "0.10"     
-serde      = "1.0"        
-serde_json = "1.0"        
-url        = "2.4"       
-fs2        = "0.4"        
+iced         = "0.10"    # GUI framework
+serde        = "1.0"     # serialisation derive macros
+serde_json   = "1.0"     # JSON persistence
+url          = "2.4"     # URL validation and host extraction
+windows-sys  = "0.48"    # CreateFileW, FILE_SHARE_READ/WRITE (Windows only)
 ```
-
-> `chrono` has been removed , it was listed as a dependency but was never used.
 
 ---
 
@@ -70,7 +68,7 @@ fs2        = "0.4"
    - Leave blank for a **permanent** block.
 4. Click **Add Website**.
 5. Click **Enable Blocking** to activate. The hosts file is updated immediately.
-6. Click **Disable Blocking** to stop all blocker entries are removed from the hosts file at once.
+6. Click **Disable Blocking** to deactivate — all blocker entries are removed from the hosts file at once.
 
 > **Tip:** If a site is still reachable after blocking, restart your browser and/or run
 > `ipconfig /flushdns` in an Administrator terminal.
@@ -79,11 +77,12 @@ fs2        = "0.4"
 
 ## Removing a site
 
-1. Make sure **blocking is disabled** first (click "Disable Blocking").
-2. Click the **Remove** button next to the site in the list.
-3. Re-enable blocking if desired.
+1. Click the **Remove** button next to the site in the list.
+2. The hosts file is cleaned **immediately** — no need to disable blocking first
+   and no restart required.
 
-> The app must be **restarted once** after removal for the unblock to fully take effect.
+> **Tip:** If the site is still reachable after removal, flush DNS:
+> `ipconfig /flushdns`
 
 ---
 
@@ -102,10 +101,12 @@ so it runs on any Windows machine without extra redistributables.
 
 ## Notes
 
-- Administrator privileges are required to write to the hosts file.  The app
+- Administrator privileges are required to write to the hosts file. The app
   detects this by probing write access directly — no fragile `whoami /priv` parsing.
 - A backup of the hosts file (`hosts.bak`) is created before every modification.
 - Blocking `example.com` automatically also blocks `www.example.com`,
   `m.example.com`, and `app.example.com`.
-- Timed blocks are cleaned up automatically on the next app launch (expired entries
-  are not written back to the hosts file).
+- Timed blocks are expired automatically — they are not written back to the
+  hosts file once their time has passed.
+- For full technical detail on every design and implementation decision,
+  see [`DESIGN.md`](DESIGN.md).
