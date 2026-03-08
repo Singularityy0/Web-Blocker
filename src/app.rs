@@ -1,57 +1,33 @@
-﻿//! Iced `Sandbox` implementation — UI layout and message handling.
-//!
-//! This module is intentionally thin: it owns only the view-layer strings
-//! (`input_value`, `duration_value`, `status_message`) and delegates every
-//! piece of business logic to `BlockerState`.
-
-use iced::{Element, Length, Sandbox, Settings};
+﻿use iced::{Element, Length, Sandbox, Settings};
 use iced::widget::{button, scrollable, text_input, Column, Container, Row, Text};
 
 use crate::blocker::BlockerState;
 use crate::duration::{parse_duration, ParsedDuration};
 use crate::hosts;
 
-// ── messages ──────────────────────────────────────────────────────────────────
-
-/// Every user interaction is represented as one of these variants.
 #[derive(Debug, Clone)]
 pub enum Message {
-    /// The URL input field changed.
     UrlChanged(String),
-    /// The duration input field changed.
     DurationChanged(String),
-    /// "Add Website" button pressed.
     AddSite,
-    /// "Remove" button pressed for a specific domain.
     RemoveSite(String),
-    /// "Enable / Disable Blocking" button pressed.
     ToggleBlocking,
 }
 
-// ── application state ─────────────────────────────────────────────────────────
-
-/// Top-level application struct — owns all UI and blocking state.
 pub struct WebBlocker {
-    blocker:         BlockerState,
-    url_input:       String,
-    duration_input:  String,
-    status_message:  String,
+    blocker:        BlockerState,
+    url_input:      String,
+    duration_input: String,
+    status_message: String,
 }
 
 impl Sandbox for WebBlocker {
     type Message = Message;
 
-    // ── initialisation ────────────────────────────────────────────────────────
-
     fn new() -> Self {
         let hosts_path = hosts::default_hosts_path();
         let blocker    = BlockerState::load(hosts_path);
-
-        let status = blocker
-            .check_permissions()
-            .err()
-            .unwrap_or_default();
-
+        let status     = blocker.check_permissions().err().unwrap_or_default();
         Self {
             blocker,
             url_input:      String::new(),
@@ -64,15 +40,11 @@ impl Sandbox for WebBlocker {
         "Website Blocker".to_string()
     }
 
-    // ── update ────────────────────────────────────────────────────────────────
-
     fn update(&mut self, message: Message) {
         match message {
-            // ── field changes (no I/O) ─────────────────────────────────────
             Message::UrlChanged(v)      => self.url_input      = v,
             Message::DurationChanged(v) => self.duration_input = v,
 
-            // ── add a site ────────────────────────────────────────────────
             Message::AddSite => {
                 let raw = self.url_input.trim().to_string();
                 if raw.is_empty() {
@@ -80,70 +52,55 @@ impl Sandbox for WebBlocker {
                     return;
                 }
 
-                // 1. Validate the URL and extract the bare domain.
                 let domain = match BlockerState::validate_url(&raw) {
                     Ok(d)  => d,
                     Err(e) => { self.status_message = format!("Invalid URL: {}", e); return; }
                 };
 
-                // 2. Parse the optional duration field.
                 let parsed = match parse_duration(&self.duration_input) {
                     Ok(p)  => p,
                     Err(e) => { self.status_message = e; return; }
                 };
 
-                // 3. Insert into the appropriate list.
                 match parsed {
-                    ParsedDuration::Permanent => {
-                        self.blocker.add_permanent(domain.clone());
-                    }
-                    ParsedDuration::Timed(expiry) => {
-                        self.blocker.add_timed(domain.clone(), expiry);
-                    }
+                    ParsedDuration::Permanent      => self.blocker.add_permanent(domain.clone()),
+                    ParsedDuration::Timed(expiry)  => self.blocker.add_timed(domain.clone(), expiry),
                 }
 
-                // 4. Clear inputs before doing I/O so the UI feels responsive.
                 self.url_input.clear();
                 self.duration_input.clear();
 
-                // 5. Persist and update the hosts file.
                 self.status_message = match self.blocker.save_and_update() {
-                    Ok(_) => format!("'{}' added successfully.", domain),
+                    Ok(_)  => format!("'{}' added successfully.", domain),
                     Err(e) => format!("Error: {}", e),
                 };
             }
 
-            // ── remove a site ─────────────────────────────────────────────
             Message::RemoveSite(site) => {
-                if self.blocker.remove(&site) {
-                    self.status_message = match self.blocker.save_and_update() {
-                        Ok(_)  => format!("'{}' removed.", site),
-                        Err(e) => format!("Error: {}", e),
-                    };
-                }
-                // If remove() returned false the site was already gone — nothing to do.
+                // remove_and_update cleans the hosts file BEFORE removing the
+                // domain from the in-memory set, so clean() still knows which
+                // lines to strip.
+                self.status_message = match self.blocker.remove_and_update(&site) {
+                    Ok(true)  => format!("'{}' removed.", site),
+                    Ok(false) => format!("'{}' was not in the block list.", site),
+                    Err(e)    => format!("Error: {}", e),
+                };
             }
 
-            // ── toggle blocking ───────────────────────────────────────────
             Message::ToggleBlocking => {
                 self.status_message = match self.blocker.toggle_blocking() {
-                    Ok(_) => {
-                        if self.blocker.sites.is_blocking_enabled {
-                            "Blocking enabled.".to_string()
-                        } else {
-                            "Blocking disabled. Hosts file cleaned.".to_string()
-                        }
-                    }
+                    Ok(_) => if self.blocker.sites.is_blocking_enabled {
+                        "Blocking enabled.".to_string()
+                    } else {
+                        "Blocking disabled. Hosts file cleaned.".to_string()
+                    },
                     Err(e) => format!("Error: {}", e),
                 };
             }
         }
     }
 
-    // ── view ──────────────────────────────────────────────────────────────────
-
     fn view(&self) -> Element<'_, Message> {
-        // ── input row ────────────────────────────────────────────────────────
         let url_field = text_input("Website (e.g. youtube.com)", &self.url_input)
             .on_input(Message::UrlChanged)
             .padding(10);
@@ -163,7 +120,6 @@ impl Sandbox for WebBlocker {
             .push(duration_field)
             .push(add_btn);
 
-        // ── toggle button ─────────────────────────────────────────────────────
         let toggle_label = if self.blocker.sites.is_blocking_enabled {
             "Disable Blocking"
         } else {
@@ -173,23 +129,14 @@ impl Sandbox for WebBlocker {
             .on_press(Message::ToggleBlocking)
             .padding(10);
 
-        // ── site list ─────────────────────────────────────────────────────────
-        // Permanent sites
         let list = self
-            .blocker
-            .sites
-            .permanent_sites
-            .iter()
+            .blocker.sites.permanent_sites.iter()
             .fold(Column::new().spacing(8), |col, site| {
                 col.push(site_row(site, "(Permanent)", Message::RemoveSite(site.clone())))
             });
 
-        // Timed sites appended below permanent ones
         let list = self
-            .blocker
-            .sites
-            .timed_sites
-            .iter()
+            .blocker.sites.timed_sites.iter()
             .fold(list, |col, (site, expiry)| {
                 let label = match expiry {
                     Some(t) => match t.duration_since(SystemTime::now()) {
@@ -201,7 +148,6 @@ impl Sandbox for WebBlocker {
                 col.push(site_row(site, &label, Message::RemoveSite(site.clone())))
             });
 
-        // ── assemble main column ──────────────────────────────────────────────
         let mut content = Column::new()
             .spacing(20)
             .padding(20)
@@ -230,11 +176,8 @@ impl Sandbox for WebBlocker {
     }
 }
 
-// ── private helpers ───────────────────────────────────────────────────────────
-
 use std::time::SystemTime;
 
-/// Build one `Row` for a site entry in the blocked-sites list.
 fn site_row<'a>(domain: &str, label: &str, on_remove: Message) -> Row<'a, Message> {
     Row::new()
         .spacing(10)
@@ -242,10 +185,6 @@ fn site_row<'a>(domain: &str, label: &str, on_remove: Message) -> Row<'a, Messag
         .push(button("Remove").on_press(on_remove).padding(5))
 }
 
-// ── run helper ────────────────────────────────────────────────────────────────
-
-/// Convenience wrapper called from `main`.
 pub fn run() -> iced::Result {
     WebBlocker::run(Settings::default())
 }
-
